@@ -1,0 +1,1 @@
+bathroom/rgb_00045.jpg bathroom/sync_depth_00045.png
