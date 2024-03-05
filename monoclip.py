@@ -70,11 +70,12 @@ class MonoCLIP(nn.Module):
 
         # @: dot product of two vectors
         img_f=torch.nn.functional.interpolate(img_f,scale_factor=0.5) # to match size
-        print("*"*50)
+        print("*"*100)
         print("img_f shape: ",img_f.shape,"text_f shape: ",self.text_f.shape)
         depth_logits = 100. * img_f @ self.text_f  # B, HW, K # img_f and text_f have both been normalized, so just use a inner product
-        print("depth logit shape: ",depth_logits.shape)
         depth_logits = depth_logits.permute(0, 2, 1).reshape(-1, self.bins, 15, 20)  # B, K, H, W 
+        print("depth logit shape: ",depth_logits.shape)
+
         depth_logits/=temperature
 
         depth = F.softmax(depth_logits, dim=1)

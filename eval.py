@@ -106,6 +106,21 @@ def validate(args, val_loader, model, dataset = 'KITTI'):
 
             output_depth = nn.functional.interpolate(output_depth, size=[480, 640], mode='bilinear', align_corners=True)
             copy_out_depth = np.squeeze(output_depth.permute(2,3,1,0).numpy().copy())
+            background_image = plt.imread("datasets\\nyu_depth_v2\official_splits\\test\\bathroom\\rgb_00045.jpg")
+            # Create a figure with the same size as the background image
+            fig, ax = plt.subplots(figsize=(background_image.shape[1] / 100, background_image.shape[0] / 100))
+
+            # Plot the background image
+            ax.imshow(background_image)
+
+            # Plot the heatmap on top of the background
+            heatmap_plot = ax.imshow(copy_out_depth, cmap='viridis', interpolation='nearest', alpha=0.7)  # Adjust alpha as needed
+
+            # Add a colorbar
+            cbar = fig.colorbar(heatmap_plot)
+
+            # Save the figure with the heatmap and background
+            fig.savefig('vis_res/heatmap.png')
             cv2.imwrite("vis_res/output_depth.jpg",copy_out_depth)
         if dataset == 'KITTI':
             err_result = compute_errors(gt_data, output_depth, crop=True, cap=args.cap)
