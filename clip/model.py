@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
-
+import cv2
 
 class Bottleneck(nn.Module):
     expansion = 4
@@ -156,19 +156,10 @@ class ModifiedResNet(nn.Module):
         print(x.shape,end="=>")
         x = x.type(self.conv1.weight.dtype)
         x = stem(x)
-        print(x.shape,end="=>")
         x = self.layer1(x)
-        print(x.shape,end="=>")
         x = self.layer2(x)
-        print(x.shape,end="=>")
         x = self.layer3(x)
-        print(x.shape,end="=>")
         x = self.layer4(x)
-        print(x.shape,end="=>")
-        x=x.reshape(-1,2048,300)
-        print(x.shape,end="=>")
-        x=x.permute(2,0,1)
-        print(x.shape)
         return x 
 
 

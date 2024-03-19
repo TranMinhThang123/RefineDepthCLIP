@@ -124,7 +124,7 @@ class MyDataset(data.Dataset):
                 bound_bottom = 480
         # print("max gt: ",np.max(np.asanyarray(gt)))
         # save for vis
-        rgb.save("vis.jpeg")
+        rgb.save("vis_res/vis.jpeg")
         rgb = rgb.crop((bound_left,bound_top,bound_right,bound_bottom))
         rgb = np.asarray(rgb, dtype=np.float32)#/255.0
 
@@ -138,8 +138,8 @@ class MyDataset(data.Dataset):
             gt = np.expand_dims(gt, axis=2)
             gt = np.clip(gt, 0, self.args.max_depth)
         
-        print("rgb shape: ",rgb.shape,"gt shape: ",gt.shape)
         rgb, gt, gt_dense = self.transform([rgb] + [gt] + [gt_dense], self.train)
+        print("rgb shape: ",rgb.shape,"gt shape: ",gt.shape)
         if self.return_filename is True:
             return rgb, gt, gt_dense, filename
         else:
@@ -172,7 +172,7 @@ class Transformer(object):
                 [transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), None, None]
             ])
             self.test_transform = EnhancedCompose([
-                #CropNumpy((args.height,args.width)),
+                # CropNumpy((args.height,args.width)),
                 ArrayToTensorNumpy(),
                 [transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), None, None]
             ])
