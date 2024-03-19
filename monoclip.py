@@ -53,11 +53,6 @@ class AdapterLayer(nn.Module):
         return x
 
 
-class UpSampleBlock(nn.Module):
-    def __init__(self) -> None:
-        super().__init__()
-        self.layers = nn.Sequential()
-
 
 # CLIP for Monocular Depth Estimation
 class MonoCLIP(nn.Module):
