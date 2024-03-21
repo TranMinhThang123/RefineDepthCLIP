@@ -7,7 +7,7 @@ import torch
 import time
 import cv2
 from PIL import ImageFile
-from transform_list import RandomCropNumpy,EnhancedCompose,RandomColor,RandomHorizontalFlip,ArrayToTensorNumpy,Normalize,CropNumpy
+from .transform_list import RandomCropNumpy,EnhancedCompose,RandomColor,RandomHorizontalFlip,ArrayToTensorNumpy,Normalize,CropNumpy
 from torchvision import transforms
 import pdb
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -140,7 +140,6 @@ class MyDataset(data.Dataset):
             gt = np.clip(gt, 0, self.args.max_depth)
         
         rgb, gt, gt_dense = self.transform([rgb] + [gt] + [gt_dense], self.train)
-        print("rgb shape: ",rgb.shape,"gt shape: ",gt.shape)
         if self.return_filename is True:
             return rgb, gt, gt_dense, filename
         else:
@@ -172,7 +171,7 @@ class NYUDataset(data.Dataset):
 
         self.transformer = EnhancedCompose([
                 ArrayToTensorNumpy(),
-                [transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), None, None]
+                [transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), None]
             ])
 
     def __getitem__(self, index):
@@ -182,7 +181,6 @@ class NYUDataset(data.Dataset):
         depth_path = self.data_path+f"/official_splits/{dataset_type}/"+depth_name
 
         rgb = Image.open(image_path)
-        rgb = np.asarray(rgb)
         rgb = np.asarray(rgb, dtype=np.float32)/255.0
         gt = Image.open(depth_path)
 

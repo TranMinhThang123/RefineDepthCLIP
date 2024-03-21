@@ -5,14 +5,14 @@ import torch
 import torch.backends.cudnn as cudnn
 import torch.nn as nn
 import torch.utils.data
-from calculate_error import *
+from utils.calculate_error import *
 from datasets.datasets_list import MyDataset
 import imageio
 import imageio.core.util
 from path import Path
-from utils import *
-from logger import AverageMeter
-from monoclip import *
+from utils.utils import *
+from utils.logger import AverageMeter
+from model.monoclip import *
 import cv2
 
 parser = argparse.ArgumentParser(description='Transformer-based Monocular Depth Estimation with Attention Supervision',
@@ -92,13 +92,11 @@ def validate(args, val_loader, model, dataset = 'KITTI'):
         rgb_data = rgb_data
         gt_data = gt_data
 
-
         input_img = rgb_data
         copy_input = np.squeeze(input_img.permute(2,3,1,0).numpy().copy())
         cv2.imwrite("vis_res/input.jpeg",copy_input)
         input_img_flip = torch.flip(input_img,[3])
         with torch.no_grad():
-            
             output_depth = model(input_img)
             output_depth_flip = model(input_img_flip)
             output_depth_flip = torch.flip(output_depth_flip,[3])
@@ -125,7 +123,7 @@ def validate(args, val_loader, model, dataset = 'KITTI'):
         if dataset == 'KITTI':
             err_result = compute_errors(gt_data, output_depth, crop=True, cap=args.cap)
         elif dataset == 'NYU':
-            err_result = compute_errors_NYU(gt_data, output_depth, crop=True,idx=i)
+            err_result = compute_errors_NYU(gt_data, output_depth, crop=False,idx=i)
 
         errors.update(err_result)
         # measure elapsed time

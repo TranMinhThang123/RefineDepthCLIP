@@ -5,16 +5,19 @@ import torch
 import torch.backends.cudnn as cudnn
 import torch.nn as nn
 import torch.utils.data
-from calculate_error import *
+from utils.calculate_error import *
 from datasets.datasets_list import MyDataset
 from datasets.datasets_list import NYUDataset
 import imageio
 import imageio.core.util
 from path import Path
 from utils import *
-from logger import AverageMeter
-from monoclip import *
+from utils.logger import AverageMeter
+from model.monoclip import *
 import cv2
+from model.losses import Criterion
+from torch.optim import lr_scheduler
+from tqdm import tqdm
 
 parser = argparse.ArgumentParser(description='Transformer-based Monocular Depth Estimation with Attention Supervision',
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -29,9 +32,9 @@ parser.add_argument('--use_dense_depth', action='store_true', help='using dense 
 
 # Dataloader setting
 parser.add_argument('-j', '--workers', default=0, type=int, metavar='N', help='number of data loading workers')
-parser.add_argument('--epochs', default=0, type=int, metavar='N', help='number of total epochs to run')
+parser.add_argument('--epochs', default=25, type=int, metavar='N', help='number of total epochs to run')
 parser.add_argument('--lr', default=0, type=float, metavar='LR', help='initial learning rate')
-parser.add_argument('--batch_size', default=24, type=int, metavar='N', help='mini-batch size')
+parser.add_argument('--batch_size', default=16, type=int, metavar='N', help='mini-batch size')
 parser.add_argument('--seed', default=0, type=int, help='seed for random functions, and network initialization')
 parser.add_argument('--dataset', type=str, default = "NYU")
 
@@ -50,32 +53,6 @@ def silence_imageio_warning(*args, **kwargs):
 imageio.core.util._precision_warn = silence_imageio_warning
 
 
-def train(train_loader,val_loader, epochs,  model, dataset = 'NYU'):
-    
-    for epoch in range(epochs):
-        for i, (rgb_data, gt_data) in enumerate(train_loader):
-
-            input_img = rgb_data
-            copy_input = np.squeeze(input_img.permute(2,3,1,0).numpy().copy())
-            cv2.imwrite("vis_res/input.jpeg",copy_input)
-            input_img_flip = torch.flip(input_img,[3])
-            with torch.no_grad():
-                
-                output_depth = model(input_img)
-                output_depth_flip = model(input_img_flip)
-                output_depth_flip = torch.flip(output_depth_flip,[3])
-                output_depth = 0.5 * (output_depth + output_depth_flip)
-
-                output_depth = nn.functional.interpolate(output_depth, size=[480, 640], mode='bilinear', align_corners=True)
-                
-            if dataset == 'KITTI':
-                err_result = compute_errors(gt_data, output_depth, crop=True, cap=args.cap)
-            elif dataset == 'NYU':
-                err_result = compute_errors_NYU(gt_data, output_depth, crop=True,idx=i)
-
-
-
-
 def main():
     args = parser.parse_args() 
     print("=> No Distributed Training")
@@ -91,11 +68,27 @@ def main():
     train_dataloader = torch.utils.data.DataLoader(train_dataset,batch_size=args.batch_size,shuffle=True)
     val_dataloader = torch.utils.data.DataLoader(val_dataset,batch_size=args.batch_size,shuffle=True)
 
-    if args.mode == "train":
-        train(model=model,epochs=args.epochs,val_loader=val_dataloader,train_loader=train_dataloader)
-    
 
+    criterion = Criterion()
+    optimizer = torch.optim.AdamW(params=model.parameters(),lr= 0.000357,weight_decay=0.1)
+    scheduler = lr_scheduler.CyclicLR(optimizer=optimizer)
 
+    epochs = args.epochs
+    for epoch in epochs:
+        print(f"Epochs {epoch}: ")
+        model.train()
+        for (rgb_img,gt_depth) in tqdm(train_dataloader):
+            preds = model(rgb_img)
+            optimizer.zero_grad()
+            preds = list(preds)
+            loss_d = 0
+            for pred in preds:
+                loss_d+=criterion(pred,gt_depth)
+            loss_d = loss_d/len(preds)
+            loss_d.backward()
+            optimizer.step()
+        print(f"Loss {str(loss_d)}")
+        scheduler.step()
 
 if __name__ == "__main__":
     main()
