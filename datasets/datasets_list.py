@@ -11,6 +11,7 @@ from transform_list import RandomCropNumpy,EnhancedCompose,RandomColor,RandomHor
 from torchvision import transforms
 import pdb
 ImageFile.LOAD_TRUNCATED_IMAGES = True
+import os
 
 def _is_pil_image(img):
     return isinstance(img, Image.Image)
@@ -47,7 +48,7 @@ class MyDataset(data.Dataset):
             if args.dataset == 'KITTI':
                 self.data_path = '/model/Narci/SARPN/datasets/KITTI'
             if args.dataset == 'NYU':
-                self.data_path = "datasets\\nyu_depth_v2\official_splits\\test"
+                self.data_path = "datasets\\nyu_depth_v2\official_splits\\test".replace("\\",os.sep)
         self.return_filename = return_filename
         with open(self.datafile, 'r') as f:
             self.fileset = f.readlines()
@@ -58,7 +59,7 @@ class MyDataset(data.Dataset):
         if self.args.dataset == 'KITTI':
             date = divided_file[0].split('/')[0] + '/'
         # Opening image files.   rgb: input color image, gt: sparse depth map
-        rgb_file = self.data_path + '\\' + divided_file[0].replace("/","\\")
+        rgb_file = self.data_path + '/' + divided_file[0].replace("/",os.sep)
         rgb = Image.open(rgb_file)
         gt = False
         gt_dense = False
@@ -124,9 +125,9 @@ class MyDataset(data.Dataset):
                 bound_bottom = 480
         # print("max gt: ",np.max(np.asanyarray(gt)))
         # save for vis
-        rgb.save("vis.jpeg")
+        rgb.save("vis_res/vis.jpeg")
         rgb = rgb.crop((bound_left,bound_top,bound_right,bound_bottom))
-        rgb = np.asarray(rgb, dtype=np.float32)#/255.0
+        rgb = np.asarray(rgb, dtype=np.float32)/255.0
 
         
 
@@ -138,8 +139,8 @@ class MyDataset(data.Dataset):
             gt = np.expand_dims(gt, axis=2)
             gt = np.clip(gt, 0, self.args.max_depth)
         
-        print("rgb shape: ",rgb.shape,"gt shape: ",gt.shape)
         rgb, gt, gt_dense = self.transform([rgb] + [gt] + [gt_dense], self.train)
+        print("rgb shape: ",rgb.shape,"gt shape: ",gt.shape)
         if self.return_filename is True:
             return rgb, gt, gt_dense, filename
         else:
@@ -147,6 +148,52 @@ class MyDataset(data.Dataset):
 
     def __len__(self):
         return len(self.fileset)
+
+
+class NYUDataset(data.Dataset):
+    def __init__(self,data_path="datasets/nyu_depth_v2",
+                 trainfile_nyu="datasets/nyudepthv2_train_files_with_gt_dense.txt",
+                 testfile_nyu="datasets/nyudepthv2_test_files_with_gt_dense.txt",
+                 train=True,
+                 maxdepth=80.0,
+                 depthscale=1000.0) -> None:
+        super().__init__()
+        self.max_depth = maxdepth
+        self.depth_scale = depthscale
+        self.train = train
+        self.data_path = data_path
+        if self.train:
+            self.datafile = trainfile_nyu
+        else:
+            self.datafile = testfile_nyu
+
+        with open(self.datafile,'r') as f:
+            self.img_label_pair = f.readlines()
+
+        self.transformer = EnhancedCompose([
+                ArrayToTensorNumpy(),
+                [transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), None, None]
+            ])
+
+    def __getitem__(self, index):
+        image_name,depth_name = self.img_label_pair[index].split()
+        dataset_type = "train" if self.train else "test"
+        image_path = self.data_path+f"/official_splits/{dataset_type}/"+image_name
+        depth_path = self.data_path+f"/official_splits/{dataset_type}/"+depth_name
+
+        rgb = Image.open(image_path)
+        rgb = np.asarray(rgb)
+        rgb = np.asarray(rgb, dtype=np.float32)/255.0
+        gt = Image.open(depth_path)
+
+        if _is_pil_image(gt):
+            gt = (np.asarray(gt, dtype=np.float32))/self.depth_scale
+            gt = np.expand_dims(gt, axis=2)
+            gt = np.clip(gt, 0, self.max_depth)
+        rgb, gt = self.transformer([rgb] + [gt] , self.train)
+
+        return rgb,gt
+
 
 class Transformer(object):
     def __init__(self, args):
@@ -172,7 +219,7 @@ class Transformer(object):
                 [transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), None, None]
             ])
             self.test_transform = EnhancedCompose([
-                #CropNumpy((args.height,args.width)),
+                # CropNumpy((args.height,args.width)),
                 ArrayToTensorNumpy(),
                 [transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), None, None]
             ])
