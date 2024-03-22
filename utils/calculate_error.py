@@ -54,7 +54,8 @@ def compute_errors(gt_sparse, pred, crop=True, cap=80.0):
 
     return [metric.item() / batch_size for metric in [abs_diff, abs_rel, sq_rel, a1, a2, a3,rmse_tot,rmse_log_tot]]
 
-def compute_errors_NYU(gt, pred, crop=True,idx=0):
+def compute_errors_NYU(gt, pred, crop=False,idx=0):
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
     abs_diff, abs_rel, log10, a1, a2, a3,rmse_tot,rmse_log_tot = 0,0,0,0,0,0,0,0
     batch_size = gt.size(0)
 
@@ -71,7 +72,7 @@ def compute_errors_NYU(gt, pred, crop=True,idx=0):
 
 
 
-        pred_uncropped = torch.zeros((h, w), dtype=torch.float32)
+        pred_uncropped = torch.zeros((h, w), dtype=torch.float32).to(device)
         pred_uncropped = pred
         pred = pred_uncropped
 

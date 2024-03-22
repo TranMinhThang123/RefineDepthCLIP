@@ -19,7 +19,7 @@ from model.losses import Criterion
 from torch.optim import lr_scheduler
 from tqdm import tqdm
 
-parser = argparse.ArgumentParser(description='Transformer-based Monocular Depth Estimation with Attention Supervision',
+parser = argparse.ArgumentParser(description='Refine Depth-CLIP',
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
 # Directory setting 
@@ -67,6 +67,11 @@ def main():
 
     train_dataloader = torch.utils.data.DataLoader(train_dataset,batch_size=args.batch_size,shuffle=True)
     val_dataloader = torch.utils.data.DataLoader(val_dataset,batch_size=args.batch_size,shuffle=True)
+    
+    error_names = ['abs_diff', 'a1', 'a2', 'a3', 'abs_rel','log10', 'rmse']
+
+    train_errors = AverageMeter(i=len(error_names))
+    val_errors = AverageMeter(i=len(error_names))
 
 
     criterion = Criterion()
@@ -87,7 +92,19 @@ def main():
             loss_d = loss_d/len(preds)
             loss_d.backward()
             optimizer.step()
-        print(f"Loss {str(loss_d)}")
+            train_err_result = compute_errors_NYU(gt=gt_depth,pred=preds)
+            train_errors.update(train_err_result)
+        
+        print('Train metric {:.4f} ({:.4f})'.format(train_errors.val[0], train_errors.avg[0]))
+        print("Train criterion: ",loss_d)
+        model.eval()
+        for (rgb_img,gt_depth) in tqdm(val_dataloader):
+            with torch.no_grad():
+                preds = model(rgb_img)
+                val_err_result = compute_errors_NYU(gt=gt_depth,pred=preds)
+                val_errors.update(val_err_result)
+        print('Validation metric {:.4f} ({:.4f})'.format(val_errors.val[0], val_errors.avg[0]))
+
         scheduler.step()
 
 if __name__ == "__main__":

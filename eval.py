@@ -68,6 +68,9 @@ def silence_imageio_warning(*args, **kwargs):
 
 imageio.core.util._precision_warn = silence_imageio_warning
 
+debug = False
+device = "cuda:0" if torch.cuda.is_available() else "cpu"
+
 
 def validate(args, val_loader, model, dataset = 'KITTI'):
     ##global device
@@ -90,36 +93,40 @@ def validate(args, val_loader, model, dataset = 'KITTI'):
         if gt_data.ndim != 4 and gt_data[0] == False:
             continue
         rgb_data = rgb_data
-        gt_data = gt_data
+        gt_data = gt_data.to(device)
 
         input_img = rgb_data
-        copy_input = np.squeeze(input_img.permute(2,3,1,0).numpy().copy())
-        cv2.imwrite("vis_res/input.jpeg",copy_input)
-        input_img_flip = torch.flip(input_img,[3])
+        # input_img_flip = torch.flip(input_img,[3])
         with torch.no_grad():
             output_depth = model(input_img)
-            output_depth_flip = model(input_img_flip)
-            output_depth_flip = torch.flip(output_depth_flip,[3])
-            output_depth = 0.5 * (output_depth + output_depth_flip)
+            # output_depth_flip = model(input_img_flip)
+            # output_depth_flip = torch.flip(output_depth_flip,[3])
+            # output_depth = 0.5 * (output_depth + output_depth_flip)
 
-            output_depth = nn.functional.interpolate(output_depth, size=[480, 640], mode='bilinear', align_corners=True)
-            copy_out_depth = np.squeeze(output_depth.permute(2,3,1,0).numpy().copy())
-            background_image = plt.imread("datasets\\nyu_depth_v2\official_splits\\test\\bathroom\\rgb_00045.jpg")
-            # Create a figure with the same size as the background image
-            fig, ax = plt.subplots(figsize=(background_image.shape[1] / 100, background_image.shape[0] / 100))
+            # output_depth = nn.functional.interpolate(output_depth, size=[480, 640], mode='bilinear', align_corners=True).to(device)
+            
+            if debug:
+                copy_input = np.squeeze(input_img.detach().permute(2,3,1,0).cpu().numpy().copy())
+                cv2.imwrite("vis_res/input.jpeg",copy_input)
 
-            # Plot the background image
-            ax.imshow(background_image)
+                copy_out_depth = np.squeeze(output_depth.detach().permute(2,3,1,0).cpu().numpy().copy())
+                background_image = plt.imread("datasets\\nyu_depth_v2\official_splits\\test\\bathroom\\rgb_00045.jpg".replace("\\",os.sep))
+                # Create a figure with the same size as the background image
+                fig, ax = plt.subplots(figsize=(background_image.shape[1] / 100, background_image.shape[0] / 100))
 
-            # Plot the heatmap on top of the background
-            heatmap_plot = ax.imshow(copy_out_depth, cmap='viridis', interpolation='nearest', alpha=0.7)  # Adjust alpha as needed
+                # Plot the background image
+                ax.imshow(background_image)
 
-            # Add a colorbar
-            cbar = fig.colorbar(heatmap_plot)
+                # Plot the heatmap on top of the background
+                heatmap_plot = ax.imshow(copy_out_depth, cmap='viridis', interpolation='nearest', alpha=0.7)  # Adjust alpha as needed
 
-            # Save the figure with the heatmap and background
-            fig.savefig('vis_res/heatmap.png')
-            cv2.imwrite("vis_res/output_depth.jpg",copy_out_depth)
+                # Add a colorbar
+                cbar = fig.colorbar(heatmap_plot)
+
+                # Save the figure with the heatmap and background
+                fig.savefig('vis_res/heatmap.png')
+                cv2.imwrite("vis_res/output_depth.jpg",copy_out_depth)
+
         if dataset == 'KITTI':
             err_result = compute_errors(gt_data, output_depth, crop=True, cap=args.cap)
         elif dataset == 'NYU':

@@ -125,7 +125,6 @@ class MyDataset(data.Dataset):
                 bound_bottom = 480
         # print("max gt: ",np.max(np.asanyarray(gt)))
         # save for vis
-        rgb.save("vis_res/vis.jpeg")
         rgb = rgb.crop((bound_left,bound_top,bound_right,bound_bottom))
         rgb = np.asarray(rgb, dtype=np.float32)/255.0
 
