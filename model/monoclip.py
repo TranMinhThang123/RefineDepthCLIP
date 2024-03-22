@@ -77,7 +77,7 @@ class MonoCLIP(nn.Module):
         self.bins = len(depth_classes)
 
         self.clip, _ = clip.load(clip_vis) # load pretrained clip encoder
-        self.text_f = zeroshot_classifier(depth_classes, obj_classes, depth_templates, self.clip) # init text feature
+        self.text_f = zeroshot_classifier(depth_classes, obj_classes, depth_templates, self.clip).to(torch.float32) # init text feature
         
         
         self.upsample_layer = nn.Upsample(scale_factor=2,mode="bilinear",align_corners=True)
@@ -113,7 +113,7 @@ class MonoCLIP(nn.Module):
         feature_map4 = self.clip.visual.layer4(feature_map3)
 
 
-        feature_map_list = [feature_map1,feature_map2,feature_map3,feature_map4]
+        feature_map_list = [feature_map1.to(torch.float32),feature_map2.to(torch.float32),feature_map3.to(torch.float32),feature_map4.to(torch.float32)]
         feature_map_list = [feature_map_list[i].reshape(1,self.channel_list[i],self.size_list[i][0]*self.size_list[i][1]).permute(0,2,1) for i in range(4)]# B,H*W,C
         feature_map_list = [fea/fea.norm(dim=-1,keepdim=True) for fea in feature_map_list]# norm 
         prompts_list = [self.adapter_list[i](self.text_f) for i in range(4)]
