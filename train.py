@@ -117,7 +117,7 @@ def main():
 
 
     criterion = SiLogLoss()
-    optimizer = torch.optim.AdamW(params=model.parameters(),lr= 0.0000003,weight_decay=0.1)
+    optimizer = torch.optim.Adam(params=model.parameters(),lr= 0.003)
     epochs = args.epochs
     path = args.save_dir
 
@@ -163,6 +163,7 @@ def main():
             print(f"\nLoss decrease from {best_loss} to {loss_d}, save best model to {path}")
             best_loss=loss_d
             torch.save(model.state_dict(),f"{path}/model2.pt")
+            torch.save(optimizer.state_dict(),f"{path}/optimizer2.pt")
 
         print("Total train loss: {:.4f}".format(loss_d.item()))
         # scheduler.step(metrics=loss_d)
