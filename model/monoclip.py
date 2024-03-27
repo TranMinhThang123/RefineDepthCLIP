@@ -93,13 +93,13 @@ class MonoCLIP(nn.Module):
 
         self.adapter_list = [AdapterLayer(c_in=1024, reduction=4/(2**i)) for i in range(4)]
         # self.bin_list = [nn.Parameter(torch.rand(1,7),requires_grad=True).unsqueeze(-1).unsqueeze(-1).to(device) for _ in range(4)]
-        self.bin_depth = nn.Parameter(torch.rand(1,7)*3,requires_grad=True).unsqueeze(-1).unsqueeze(-1).to(device)
+        self.bin_depth = torch.tensor(bin_list).unsqueeze(-1).unsqueeze(-1).to(device)
         self.size_list = [(120,160),(60,80),(30,40),(15,20)]
         self.channel_list = [256,512,1024,2048]
 
 
     def compute_depth_map(self,x):
-
+        batch_size = x.shape[0]
 
         def stem(x):
             for conv, bn in [(self.clip.visual.conv1, self.clip.visual.bn1), (self.clip.visual.conv2, self.clip.visual.bn2), (self.clip.visual.conv3, self.clip.visual.bn3)]:
@@ -116,9 +116,8 @@ class MonoCLIP(nn.Module):
         feature_map3 = self.clip.visual.layer3(feature_map2)
         feature_map4 = self.clip.visual.layer4(feature_map3)
 
-
         feature_map_list = [feature_map1.to(torch.float32),feature_map2.to(torch.float32),feature_map3.to(torch.float32),feature_map4.to(torch.float32)]
-        feature_map_list = [feature_map_list[i].reshape(1,self.channel_list[i],self.size_list[i][0]*self.size_list[i][1]).permute(0,2,1) for i in range(4)]# B,H*W,C
+        feature_map_list = [feature_map_list[i].reshape(batch_size,self.channel_list[i],self.size_list[i][0]*self.size_list[i][1]).permute(0,2,1) for i in range(4)]# B,H*W,C
         feature_map_list = [fea/fea.norm(dim=-1,keepdim=True) for fea in feature_map_list]# norm 
         prompts_list = [self.adapter_list[i](self.text_f) for i in range(4)]
 
@@ -149,7 +148,6 @@ class MonoCLIP(nn.Module):
         output = torch.cat((output,depth_map1),dim=1)
         # print("After cat output vs depth map 1: ",output.shape)
         output = self.conv_block[2](output)
-        print(output.shape)
         # print("After pass through conv",output.shape)
         depth = F.softmax(output,dim=1)*self.bin_depth
         depth = depth.sum(dim=1,keepdim=True)
