@@ -170,7 +170,7 @@ class NYUDataset(data.Dataset):
 
         self.transformer = EnhancedCompose([
                 ArrayToTensorNumpy(),
-                [transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), None]
+                [transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),None]
             ])
 
     def __getitem__(self, index):
@@ -179,7 +179,7 @@ class NYUDataset(data.Dataset):
         image_path = self.data_path+f"/official_splits/{dataset_type}/"+image_name
         depth_path = self.data_path+f"/official_splits/{dataset_type}/"+depth_name
 
-        rgb = Image.open(image_path)
+        rgb = Image.open(image_path)        
         rgb = np.asarray(rgb, dtype=np.float32)/255.0
         gt = Image.open(depth_path)
 
@@ -187,9 +187,12 @@ class NYUDataset(data.Dataset):
             gt = (np.asarray(gt, dtype=np.float32))/self.depth_scale
             gt = np.expand_dims(gt, axis=2)
             gt = np.clip(gt, 0, self.max_depth)
-        rgb, gt = self.transformer([rgb] + [gt] , self.train)
+        rgb, gt = self.transformer([rgb] + [gt])
 
         return rgb,gt
+    
+    def __len__(self):
+        return len(self.img_label_pair)
 
 
 class Transformer(object):

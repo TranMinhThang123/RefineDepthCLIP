@@ -20,7 +20,7 @@ from torch.jit import script
 import geffnet
 import clip
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def zeroshot_classifier(depth_classes,obj_classes, templates, model):
     with torch.no_grad():
@@ -60,8 +60,8 @@ class Conv2DLayerBlock(nn.Module):
         super().__init__()
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels=in_channel,out_channels=out_channel,kernel_size=3,stride=1,padding=1).to(device),
-            nn.BatchNorm2d(7),
-            nn.ReLU(inplace=True)
+            nn.BatchNorm2d(7).to(device=device),
+            nn.ReLU(inplace=True).to(device=device)
         )
 
     def forward(self,x):
@@ -81,15 +81,19 @@ class MonoCLIP(nn.Module):
         
         
         self.upsample_layer = nn.Upsample(scale_factor=2,mode="bilinear",align_corners=True)
-        self.conv_block = Conv2DLayerBlock()
-        self.last_conv_layer = nn.Conv2d(7,1,kernel_size=1,stride=1,padding=0).to(device)
+        self.conv_block = [Conv2DLayerBlock() for _ in range(3)]
+        # self.last_conv_layer = nn.Sequential(
+        #     nn.Conv2d(7,1,kernel_size=1,stride=1,padding=0).to(device),
+        #     nn.ReLU(inplace=True).to(device)
+        # )
 
         self.text_f.requires_grad = False
         for param in self.clip.visual.parameters():
-            param.require_grad = False
+            param.requires_grad = False
 
         self.adapter_list = [AdapterLayer(c_in=1024, reduction=4/(2**i)) for i in range(4)]
-        self.bin_list = [nn.Parameter(torch.tensor(bin_list),requires_grad=True).unsqueeze(-1).unsqueeze(-1).to(device) for _ in range(4)]
+        # self.bin_list = [nn.Parameter(torch.rand(1,7),requires_grad=True).unsqueeze(-1).unsqueeze(-1).to(device) for _ in range(4)]
+        self.bin_depth = nn.Parameter(torch.rand(1,7)*3,requires_grad=True).unsqueeze(-1).unsqueeze(-1).to(device)
         self.size_list = [(120,160),(60,80),(30,40),(15,20)]
         self.channel_list = [256,512,1024,2048]
 
@@ -120,7 +124,7 @@ class MonoCLIP(nn.Module):
 
         depth_map_list = [100.*feature_map_list[i]@prompts_list[i]/temperature for i in range(4)]
         depth_map_list = [depth_map_list[i].permute(0,2,1).reshape(-1,self.bins,*self.size_list[i]) for i in range(4)]
-        depth_map_list = [F.softmax(depth_map_list[i],dim=1)*self.bin_list[i] for i in range(4)]
+        # depth_map_list = [F.softmax(depth_map_list[i],dim=1)*self.bin_list[i] for i in range(4)]
         
         return depth_map_list
 
@@ -132,21 +136,24 @@ class MonoCLIP(nn.Module):
         # print("After upsample depth map 4: ",output.shape)
         output = torch.cat((output,depth_map3),dim=1)
         # print("After cat output vs depth map 3: ",output.shape)
-        output = self.conv_block(output)
+        output = self.conv_block[0](output)
         # print("After pass through conv",output.shape)
         output = self.upsample_layer(output)
         # print("After upsample depth map 3: ",output.shape)
         output = torch.cat((output,depth_map2),dim=1)
         # print("After cat output vs depth map 2: ",output.shape)
-        output = self.conv_block(output)
+        output = self.conv_block[1](output)
         # print("After pass through conv",output.shape)
         output = self.upsample_layer(output)
         # print("After upsample depth map 2: ",output.shape)
         output = torch.cat((output,depth_map1),dim=1)
         # print("After cat output vs depth map 1: ",output.shape)
-        output = self.conv_block(output)
+        output = self.conv_block[2](output)
+        print(output.shape)
         # print("After pass through conv",output.shape)
-        depth = self.last_conv_layer(output)
+        depth = F.softmax(output,dim=1)*self.bin_depth
+        depth = depth.sum(dim=1,keepdim=True)
+        # depth = self.last_conv_layer(output)
         # print("depth shape: ",depth.shape)
         depth = nn.functional.interpolate(depth,size=[480,640],mode="bilinear",align_corners=True)
 
