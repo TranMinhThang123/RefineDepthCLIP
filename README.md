@@ -1,4 +1,14 @@
 # Depth Estimation with RefineDepthCLIP
+## Architecture
+
+  This model harness the ability of cross-modal model CLIP and modify it with U-Net decoder to solve problem in monocular depth estimation 
+  
+
+
+  
+  ![alt text](https://github.com/TranMinhThang123/RefineDepthCLIP/blob/new_fix/assets/Architecture.png)
+
+
 ## Prepare datasets
 
 1. Prepare NYUDepthV2 datasets following [GLPDepth](https://github.com/vinvino02/GLPDepth) and [BTS](https://github.com/cleinc/bts/tree/master).
@@ -33,7 +43,7 @@ Your datasets directory should be:
 
 | NYUv2 | RMSE | d1 | d2 | d3 | REL | Fine-tuned Model |
 |-------------------|-------|-------|--------|--------|-------|-------|
-| **MetaPrompts** | 0.223 | 0.976 | 0.997 | 0.999 | 0.061 |[Google drive](https://drive.google.com/file/d/1IBZ34fCaD7vTpr4eS7Cq-gfJWDOzx54A/view?usp=sharing) |
+| **RefineDepthCLIP** | 1.172 | 0.388 | 0.702 | 0.853 | 0.931 |[Google drive](https://drive.google.com/file/d/1w3ba7mMj6qS9-FndU5HJBP3YSKZKMUXe/view?usp=sharing) |
 
 ## Training
 
